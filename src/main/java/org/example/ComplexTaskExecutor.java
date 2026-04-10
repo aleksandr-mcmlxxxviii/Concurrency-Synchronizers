@@ -1,5 +1,6 @@
 package org.example;
 
+import java.util.Optional;
 import java.util.concurrent.*;
 
 public class ComplexTaskExecutor {
@@ -20,24 +21,35 @@ public class ComplexTaskExecutor {
 
     public void performGeneralTasks(int numberOfTasks){
         String testThreadName = Thread.currentThread().getName();
-        ConcurrentLinkedQueue<Integer> results = new ConcurrentLinkedQueue<>();
+        ConcurrentLinkedQueue<Optional<Integer>> results = new ConcurrentLinkedQueue<>();
 
         ExecutorService executorService = Executors.newFixedThreadPool(numberOfTasks);
         CyclicBarrier cyclicBarrier = new CyclicBarrier(numberOfTasks, () -> {
             sumOfResults(results, testThreadName);
         });
 
-        for (int i = 0; i < numberOfTasks; i++){
+        for (int i = 1; i <= numberOfTasks; i++){
             final int taskId = i;
             executorService.submit(() ->{
+                String localThreadName = Thread.currentThread().getName();
                 try {
                     ComplexTask task = new ComplexTask(taskId);
-                    int result = task.execute();
-                    results.add(result);
-                    cyclicBarrier.await();
-                } catch (InterruptedException | BrokenBarrierException e) {
-                    Thread.currentThread().interrupt();
-                    System.err.println("Задача: " + taskId + " прервалась: " + e.getMessage());
+                    int result = task.execute(testThreadName);
+                    results.add(Optional.of(result));
+                } catch (InterruptedException e) {
+                    results.add(Optional.empty());
+                    System.err.println("Прерывание в потоке " + localThreadName + ": " + e.getMessage());
+                } catch (IllegalArgumentException e) {
+                    results.add(Optional.empty());
+                    System.err.println("Ошибка в потоке " + localThreadName + ": " + e.getMessage());
+                } finally {
+                    try {
+                        cyclicBarrier.await();
+                    } catch (InterruptedException e) {
+                        System.err.println("Поток: " + localThreadName + " был прерван в момент ожидания, ломаем барьер");
+                    }catch (BrokenBarrierException e) {
+                        System.err.println("Барьер сломался, поток: " + localThreadName + " выходит из ожидания");
+                    }
                 }
             });
         }
@@ -55,10 +67,13 @@ public class ComplexTaskExecutor {
         }
     }
 
-    private void sumOfResults (ConcurrentLinkedQueue<Integer> results, String tradName){
+    private void sumOfResults (ConcurrentLinkedQueue<Optional<Integer>> results, String tradName){
+        System.out.println(results);
         long sum = 0;
-        for (int r: results){
-            sum += r;
+        for (Optional<Integer> r: results){
+            if (r.isPresent()){
+                sum += r.orElse(0);
+            }
         }
         System.out.println(tradName + " Результат работы: " + sum);
     }

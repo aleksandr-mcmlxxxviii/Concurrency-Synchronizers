@@ -7,18 +7,23 @@ public class ComplexTask {
         this.taskId = taskId;
     }
 
-    public int execute() {
+    public int execute(String testThreadName) throws InterruptedException {
         String threadName = Thread.currentThread().getName();
-        System.out.println(threadName + " - начал выполнение задачи: " + taskId);
+        int executionTime =  (int) (Math.random() * 9000) + 1000;
         int result = (int) (Math.random() * 100);
-        try {
-            Thread.sleep((int) (Math.random() * 9000) + 1000);
-        } catch (InterruptedException e) {
-            System.out.println(threadName + " - был прерван при выполнении задачи: " + taskId);
+
+        System.out.println("В родительском потоке: " + testThreadName + "   поток: " + threadName + " - начал выполнение задачи: " + taskId + "   возвращаемый результат: " + result + "   длительность ms: " + executionTime);
+
+        if (taskId == 5 || taskId == 1){
             Thread.currentThread().interrupt();
-            return -1;
         }
-        System.out.println(threadName + " - завершил выполнение задачи: " + taskId);
+        if (taskId == 3){
+            throw new IllegalArgumentException("Не валидные данные");
+        }
+
+        Thread.sleep(executionTime);
+
+        System.out.println("В родительском потоке: " + testThreadName + "   поток: " + threadName + " - завершилось выполнение задачи: " + taskId);
         return result;
     }
 }
